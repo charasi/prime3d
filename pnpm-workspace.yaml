@@ -1,0 +1,9 @@
+packages:
+  # The engine itself
+  - 'core-engine'
+
+  # The standalone application
+  - 'solar-system'
+
+  # Any small visual tests you put in the examples folder
+  - 'examples/*'
