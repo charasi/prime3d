@@ -45,14 +45,14 @@ export class Mat2 {
       const elements: number[] = out.elements;
       elements[0] = r00 * c00 + r01 * c01;
       elements[2] = r00 * c10 + r01 * c11;
-      elements[1] = r00 * c00 + r01 * c01;
+      elements[1] = r10 * c00 + r11 * c01;
       elements[3] = r10 * c10 + r11 * c11;
       return out;
     }
 
     this._values[0] = r00 * c00 + r01 * c01;
     this._values[2] = r00 * c10 + r01 * c11;
-    this._values[1] = r00 * c00 + r01 * c01;
+    this._values[1] = r10 * c00 + r11 * c01;
     this._values[3] = r10 * c10 + r11 * c11;
     return this;
   }
