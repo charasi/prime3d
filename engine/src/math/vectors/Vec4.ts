@@ -7,7 +7,7 @@ import { Mat4 } from "../matrix/Mat4";
  * Uses a hybrid memory pattern to prevent unnecessary garbage collection:
  * If an `out` vector is provided, the result is stored there. Otherwise, `this` is mutated.
  */
-class Vec4 {
+export class Vec4 {
   /** The x component of the vector (or Red). */
   x: number;
   /** The y component of the vector (or Green). */

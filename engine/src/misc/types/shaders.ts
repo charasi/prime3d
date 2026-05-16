@@ -85,3 +85,9 @@ export interface DrawElements {
 }
 
 export type DrawCall = DrawArrays | DrawElements;
+
+export interface AttributeNames {
+  position: string;
+  normal: string;
+  uv: string;
+}

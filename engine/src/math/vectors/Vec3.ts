@@ -6,7 +6,7 @@ import { Mat4 } from "../matrix/Mat4";
  * Uses a hybrid memory pattern to prevent unnecessary garbage collection:
  * If an `out` vector is provided, the result is stored there. Otherwise, `this` is mutated.
  */
-class Vec3 {
+export class Vec3 {
   /** The x component of the vector. */
   x: number;
   /** The y component of the vector. */
@@ -341,6 +341,27 @@ class Vec3 {
     return this;
   }
 
+  transformDirection(mat4: Mat4, out?: Vec3): Vec3 {
+    // Cache the original values to prevent premature overwriting
+    const x: number = this.x;
+    const y: number = this.y;
+    const z: number = this.z;
+    const mat: number[] = mat4.elements;
+
+    if (out) {
+      out.x = mat[0] * x + mat[4] * y + mat[8] * z;
+      out.y = mat[1] * x + mat[5] * y + mat[9] * z;
+      out.z = mat[2] * x + mat[6] * y + mat[10] * z;
+      return out;
+    }
+
+    this.x = mat[0] * x + mat[4] * y + mat[8] * z;
+    this.y = mat[1] * x + mat[5] * y + mat[9] * z;
+    this.z = mat[2] * x + mat[6] * y + mat[10] * z;
+
+    return this;
+  }
+
   /**
    * Instantiates and returns a brand new vector with the exact same component values.
    * @returns A new Vec3 instance.
@@ -359,6 +380,53 @@ class Vec3 {
     this.x = v.x;
     this.y = v.y;
     this.z = v.z;
+    return this;
+  }
+
+  projectOnPlane(n: Vec3, out?: Vec3): Vec3 {
+    // 1. Get the altitude: Dot product of THIS vector and the normal
+    const s: number = this.dot(n);
+
+    // 2. Calculate the drop vector components (safely isolated in local primitives)
+    const dropX: number = n.x * s;
+    const dropY: number = n.y * s;
+    const dropZ: number = n.z * s;
+
+    // 3 & 4. Route the final subtraction to the correct object in memory
+    if (out) {
+      out.x = this.x - dropX;
+      out.y = this.y - dropY;
+      out.z = this.z - dropZ;
+      return out;
+    }
+
+    // Fallback: Mutate 'this' if no 'out' vector was provided
+    this.x -= dropX;
+    this.y -= dropY;
+    this.z -= dropZ;
+    return this;
+  }
+
+  reflect(n: Vec3, out?: Vec3): Vec3 {
+    // 1. Get the altitude and double it for reflection
+    const s: number = this.dot(n) * 2.0;
+
+    // 2. Calculate the drop vector primitives
+    const dropX: number = n.x * s;
+    const dropY: number = n.y * s;
+    const dropZ: number = n.z * s;
+
+    // 3 & 4. Route output
+    if (out) {
+      out.x = this.x - dropX;
+      out.y = this.y - dropY;
+      out.z = this.z - dropZ;
+      return out;
+    }
+
+    this.x -= dropX;
+    this.y -= dropY;
+    this.z -= dropZ;
     return this;
   }
 
