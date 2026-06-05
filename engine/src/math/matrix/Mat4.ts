@@ -1041,6 +1041,27 @@ export class Mat4 {
     return target;
   }
 
+  copy(out: Mat4): Mat4 {
+    const e: number[] = out.elements;
+    e[0] = this._values[0];
+    e[1] = this._values[1];
+    e[2] = this._values[2];
+    e[3] = this._values[3];
+    e[4] = this._values[4];
+    e[5] = this._values[5];
+    e[6] = this._values[6];
+    e[7] = this._values[7];
+    e[8] = this._values[8];
+    e[9] = this._values[9];
+    e[10] = this._values[10];
+    e[11] = this._values[11];
+    e[12] = this._values[12];
+    e[13] = this._values[13];
+    e[14] = this._values[14];
+    e[15] = this._values[15];
+    return out;
+  }
+
   set elements(value: number[]) {
     this._values = value;
   }
