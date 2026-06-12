@@ -1,22 +1,24 @@
-import { AttributeNames, BufferConfig, SubMesh } from "../misc/types";
+import { AttributeNames, BufferConfig, MeshData } from "../misc/types";
 
 export class Mesh {
   name: string;
-  mesh: SubMesh;
+  private _vaoName: string | null = null;
+  meshData: MeshData | null = null;
 
-  constructor(name: string, subMesh: SubMesh) {
+  constructor(name: string, meshData: MeshData) {
     this.name = name;
-    this.mesh = subMesh;
+    this.meshData = meshData;
+    this._vaoName = null;
   }
 
   createVertexData(attrName: AttributeNames): BufferConfig[] {
-    if (this.mesh == null) return [];
+    if (this.meshData == null) return [];
 
     const buffers: BufferConfig[] = [];
 
-    const positionData: Float32Array = new Float32Array(this.mesh.position);
-    const normalData: Float32Array = new Float32Array(this.mesh.normal);
-    const uvData: Float32Array = new Float32Array(this.mesh.uv);
+    const positionData: Float32Array = new Float32Array(this.meshData.position);
+    const normalData: Float32Array = new Float32Array(this.meshData.normal);
+    const uvData: Float32Array = new Float32Array(this.meshData.uv);
 
     const positionBuf: BufferConfig = {
       attributeName: attrName.position,
@@ -51,5 +53,18 @@ export class Mesh {
     }
 
     return buffers;
+  }
+
+  // A method to clean up CPU memory after the GPU upload is finished
+  freeCpuMemory(): void {
+    this.meshData = null;
+  }
+
+  get vaoName(): string | null {
+    return this._vaoName;
+  }
+
+  set vaoName(value: string | null) {
+    this._vaoName = value;
   }
 }

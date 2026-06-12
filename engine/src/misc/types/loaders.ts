@@ -7,13 +7,13 @@ export type Normal = Vec3;
 
 export type UV = Vec2;
 
-export interface Mesh {
+export interface MeshData {
   position: number[];
   normal: number[];
   uv: number[];
 }
 
-export type SubMesh = Mesh;
+//export type SubMesh = Mesh;
 
 export interface Material {
   name: string;

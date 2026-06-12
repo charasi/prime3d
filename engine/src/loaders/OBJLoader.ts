@@ -1,4 +1,4 @@
-import { Normal, Position, SubMesh, UV } from "../misc/types";
+import { MeshData, Normal, Position, UV } from "../misc/types";
 import { Vec3 } from "../math/vectors/Vec3";
 import { Vec2 } from "../math/vectors/Vec2";
 
@@ -9,7 +9,7 @@ export class OBJLoader {
   tempUVs: UV[];
   activeMaterial: string = "default";
 
-  subMeshes: Map<string, SubMesh>;
+  subMeshes: Map<string, MeshData>;
 
   constructor(name: string) {
     this.name = name;
@@ -17,9 +17,9 @@ export class OBJLoader {
     this.tempNormals = [];
     this.tempUVs = [];
 
-    this.subMeshes = new Map<string, SubMesh>();
+    this.subMeshes = new Map<string, MeshData>();
 
-    const subMesh: SubMesh = {
+    const subMesh: MeshData = {
       position: [],
       uv: [],
       normal: [],
@@ -27,7 +27,7 @@ export class OBJLoader {
     this.subMeshes.set("default", subMesh);
   }
 
-  async load(url: string): Promise<Map<string, SubMesh>> {
+  async load(url: string): Promise<Map<string, MeshData>> {
     const response: Response = await fetch(url);
     if (!response.ok) {
       throw new Error(response.statusText);
@@ -103,7 +103,7 @@ export class OBJLoader {
 
     const bool: boolean = this.subMeshes.has(this.activeMaterial);
     if (!bool) {
-      const subMesh: SubMesh = {
+      const subMesh: MeshData = {
         position: [],
         uv: [],
         normal: [],
@@ -113,7 +113,7 @@ export class OBJLoader {
   }
 
   private parseFace(data: string[]): void {
-    const mesh: SubMesh = this.subMeshes.get(this.activeMaterial)!; // Safe because of our Map structure
+    const meshData: MeshData = this.subMeshes.get(this.activeMaterial)!; // Safe because of our Map structure
 
     for (let face of data) {
       const indices: string[] = face.split("/");
@@ -121,26 +121,26 @@ export class OBJLoader {
       // 1. Position is ALWAYS guaranteed in an OBJ file
       const posIndex = parseInt(indices[0]) - 1;
       const position = this.tempPositions[posIndex];
-      mesh.position.push(position.x, position.y, position.z);
+      meshData.position.push(position.x, position.y, position.z);
 
       // 2. Safely handle missing UVs
       if (indices.length > 1 && indices[1] !== "") {
         const uvIndex = parseInt(indices[1]) - 1;
         const uv = this.tempUVs[uvIndex];
-        mesh.uv.push(uv.x, uv.y);
+        meshData.uv.push(uv.x, uv.y);
       } else {
         // Dummy fallback to keep WebGL happy
-        mesh.uv.push(0, 0);
+        meshData.uv.push(0, 0);
       }
 
       // 3. Safely handle missing Normals
       if (indices.length > 2 && indices[2] !== "") {
         const normIndex = parseInt(indices[2]) - 1;
         const normal = this.tempNormals[normIndex];
-        mesh.normal.push(normal.x, normal.y, normal.z);
+        meshData.normal.push(normal.x, normal.y, normal.z);
       } else {
         // Dummy fallback (pointing straight up)
-        mesh.normal.push(0, 1, 0);
+        meshData.normal.push(0, 1, 0);
       }
     }
   }
