@@ -1,8 +1,6 @@
 import type {
   ShaderConfig,
-  VtxShaderInput,
   BufferConfig,
-  ShaderUniformInput,
   ShaderUniformData,
   DrawCall,
   DrawMode,
@@ -14,7 +12,6 @@ export class Renderer {
   private programs: Map<string, WebGLProgram>;
   private vertShaders: Map<string, WebGLShader>;
   private fragmentShaders: Map<string, WebGLShader>;
-  private attribLocations: Map<string, number>;
   private vaos: Map<string, WebGLVertexArrayObject>;
   private uniformLocations: Map<string, WebGLUniformLocation>;
   private activeProgramName: string | null;
@@ -27,10 +24,11 @@ export class Renderer {
     if (!this.gl) {
       throw new Error("Prime3D: WebGL2 is not supported by this browser.");
     }
+    this.gl.enable(this.gl.DEPTH_TEST);
+    this.gl.depthFunc(this.gl.LEQUAL);
     this.vertShaders = new Map<string, WebGLShader>();
     this.fragmentShaders = new Map<string, WebGLShader>();
     this.programs = new Map<string, WebGLProgram>();
-    this.attribLocations = new Map<string, number>();
     this.vaos = new Map<string, WebGLVertexArrayObject>();
     this.uniformLocations = new Map<string, WebGLUniformLocation>();
     this.activeProgramName = null;
@@ -110,6 +108,27 @@ export class Renderer {
       this.gl.deleteShader(fragmentShader);
 
       this.programs.set(shader.name, program);
+
+      const numUniforms = this.gl.getProgramParameter(
+        program,
+        this.gl.ACTIVE_UNIFORMS,
+      );
+
+      for (let i = 0; i < numUniforms; i++) {
+        const uniformInfo = this.gl.getActiveUniform(program, i);
+        if (uniformInfo) {
+          const location = this.gl.getUniformLocation(
+            program,
+            uniformInfo.name,
+          );
+          if (location) {
+            // Strip "[0]" from array uniforms so you can bind arrays easily
+            const cleanName = uniformInfo.name.replace(/\[0\]$/, "");
+            const storageKey = `${shader.name}:${cleanName}`;
+            this.uniformLocations.set(storageKey, location);
+          }
+        }
+      }
     }
   }
 
@@ -176,67 +195,41 @@ export class Renderer {
     this.fragmentShaders.set(shader.name, fShader);
   }
 
-  addVertexInputs(vtxShaderInputs: VtxShaderInput[]): void {
-    // Ensure the WebGL2 context exists before attempting GPU operations
-    if (!this.gl) {
-      throw new Error("Prime3D: WebGL2 is not supported by this browser.");
-    }
-
-    for (const vtxInput of vtxShaderInputs) {
-      const program: WebGLProgram | undefined = this.programs.get(
-        vtxInput.pgmName,
-      );
-      if (!program) {
-        throw new Error(
-          `Prime3D: Program not created for '${vtxInput.pgmName}'`,
-        );
-      }
-
-      const location: number = this.gl.getAttribLocation(
-        program,
-        vtxInput.input,
-      );
-      if (location === -1) {
-        throw new Error(
-          `Prime3D: Attribute '${vtxInput.input}' not found in program '${vtxInput.pgmName}'. ` +
-            `It may be misspelled, or the WebGL compiler may have optimized it out because it wasn't used.`,
-        );
-      }
-      // Store it safely using a composite key (e.g., "solidColor:aVertexPosition")
-      const storageKey = `${vtxInput.pgmName}:${vtxInput.input}`;
-      this.attribLocations.set(storageKey, location);
-    }
-  }
-
   createVertexBuffers(
     vao: string,
-    programName: string,
+    programName: string, // We need this back so we can query the program!
     bufferConfigs: BufferConfig[],
   ): void {
-    // Ensure the WebGL2 context exists before attempting GPU operations
-    if (!this.gl) {
-      throw new Error("Prime3D: WebGL2 is not supported by this browser.");
-    }
+    if (!this.gl) throw new Error("Prime3D: WebGL2 is not supported.");
 
-    // Create VAO instance
+    const program: WebGLProgram | undefined = this.programs.get(programName);
+    if (!program)
+      throw new Error(`Prime3D: Program '${programName}' not found.`);
+
     const vaoRef: WebGLVertexArrayObject | null = this.gl.createVertexArray();
     if (!vaoRef) throw new Error("GPU out of memory");
 
-    // Bind it so we can work on it
     this.gl.bindVertexArray(vaoRef);
 
     for (const config of bufferConfigs) {
       const buffer: WebGLBuffer | null = this.gl.createBuffer();
       if (!buffer) throw new Error("GPU out of memory");
+
       const bufferType: number = this.getBufferType(config.target);
       this.gl.bindBuffer(bufferType, buffer);
+
       const bufferUsage: number = this.getBufferUsage(config.usage);
       this.gl.bufferData(bufferType, config.data, bufferUsage);
-      if (config.target === "vertex") {
-        const storageKey: string = `${programName}:${config.attributeName}`;
-        const location: number | undefined =
-          this.attribLocations.get(storageKey);
-        if (location !== undefined && location !== -1) {
+
+      // Just-In-Time Query!
+      if (config.target === "vertex" && config.attributeName) {
+        const location: number = this.gl.getAttribLocation(
+          program,
+          config.attributeName,
+        );
+
+        // Safely check if the compiler optimized it out
+        if (location !== -1) {
           this.gl.enableVertexAttribArray(location);
           this.gl.vertexAttribPointer(
             location,
@@ -245,6 +238,10 @@ export class Renderer {
             false,
             0,
             0,
+          );
+        } else {
+          console.warn(
+            `Prime3D: Attribute '${config.attributeName}' missing or optimized out in '${programName}'.`,
           );
         }
       }
@@ -299,41 +296,6 @@ export class Renderer {
     }
   }
 
-  addUniform(uniformInputs: ShaderUniformInput[]): void {
-    if (!this.gl) {
-      throw new Error("Prime3D: WebGL2 is not supported by this browser.");
-    }
-    for (const uniform of uniformInputs) {
-      const program: WebGLProgram | undefined = this.programs.get(
-        uniform.pgmName,
-      );
-
-      if (!program) {
-        throw new Error(
-          `Prime3D: Program not created for '${uniform.pgmName}'`,
-        );
-      }
-
-      // Fetch the location object from the GPU
-      const location: WebGLUniformLocation | null = this.gl.getUniformLocation(
-        program,
-        uniform.input,
-      );
-
-      // WebGL returns null if the uniform doesn't exist or was optimized out by the compiler
-      if (location === null) {
-        console.warn(
-          `Prime3D: Uniform '${uniform.input}' not found in program '${uniform.pgmName}'. ` +
-            `It may be misspelled or the compiler may have optimized it out.`,
-        );
-      } else {
-        // Store it using our trusty composite key! (e.g., "basicShader:uColor")
-        const storageKey = `${uniform.pgmName}:${uniform.input}`;
-        this.uniformLocations.set(storageKey, location);
-      }
-    }
-  }
-
   bindUniform(shaderUniformData: ShaderUniformData[]): void {
     // Ensure the WebGL2 context exists before attempting GPU operations
     if (!this.gl) {
@@ -341,10 +303,16 @@ export class Renderer {
     }
 
     for (const config of shaderUniformData) {
+      // 1. THE FIX: Guarantee the correct shader is active before sending data!
+      // (This is virtually free because your useProgram method caches the active state)
+      this.useProgram(config.pgmName);
+
       const storageKey = `${config.pgmName}:${config.uniformName}`;
       const location = this.uniformLocations.get(storageKey);
+
       if (!location) continue;
       const value = config.data;
+
       switch (config.type) {
         case "float":
           this.gl.uniform1f(location, value as number);
@@ -362,7 +330,6 @@ export class Renderer {
           this.gl.uniform4fv(location, value as Float32Array | number[]);
           break;
         case "mat3":
-          // Matrices require a middle argument: "transpose" (which must be false in WebGL)
           this.gl.uniformMatrix3fv(location, false, value as Float32Array);
           break;
         case "mat4":
@@ -455,5 +422,92 @@ export class Renderer {
       default:
         return this.gl.TRIANGLES; // Always provide a safe fallback!
     }
+  }
+
+  // Add to Renderer.ts
+  enableBlending(): void {
+    if (!this.gl) return;
+    this.gl.enable(this.gl.BLEND);
+    // Standard Alpha Blending
+    this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
+  }
+
+  //
+  async createTextures(urls: string[]): Promise<WebGLTexture[]> {
+    if (!this.gl) throw new Error("WebGL context is not initialized");
+    const maxUnits: number = this.gl?.getParameter(
+      this.gl?.MAX_COMBINED_TEXTURE_IMAGE_UNITS,
+    );
+    if (urls.length > maxUnits) {
+      throw new Error(
+        `WebGL can only support ${maxUnits} textures in a single draw call.`,
+      );
+    }
+
+    const loadedTextures = (url: string): Promise<WebGLTexture> => {
+      return new Promise((resolve, reject) => {
+        const image: HTMLImageElement = new Image();
+        //image.crossOrigin = "anonymous";
+        image.src = url;
+        image.onload = () => {
+          const gl: WebGL2RenderingContext = this.gl!;
+          const texture: WebGLTexture = gl.createTexture();
+          gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+          gl.bindTexture(gl.TEXTURE_2D, texture);
+          gl.texImage2D(
+            gl.TEXTURE_2D,
+            0,
+            gl.RGBA,
+            gl.RGBA,
+            gl.UNSIGNED_BYTE,
+            image,
+          );
+
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+          gl.bindTexture(gl.TEXTURE_2D, null);
+          resolve(texture);
+        };
+
+        image.onerror = () => {
+          reject(new Error(`Failed to load texture image from url: ${url}`));
+        };
+      });
+    };
+
+    return Promise.all(urls.map((url) => loadedTextures(url)));
+  }
+
+  setActiveTextures(textures: WebGLTexture[]): void {
+    if (!this.gl) return;
+    for (let i = 0; i < textures.length; i++) {
+      this.gl.activeTexture(this.gl.TEXTURE0 + i);
+      this.gl.bindTexture(this.gl.TEXTURE_2D, textures[i]);
+    }
+  }
+
+  disableBlending(): void {
+    if (!this.gl) return;
+    this.gl.disable(this.gl.BLEND);
+  }
+
+  flipTexture(): void {
+    if (!this.gl) return;
+    this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, true);
+  }
+
+  clear(r: number, g: number, b: number, a: number = 1.0): void {
+    if (!this.gl) {
+      throw new Error("Prime3D: WebGL2 context missing.");
+    }
+    // 1. Set the background color (e.g., 0.2, 0.2, 0.2 for dark gray)
+    this.gl.clearColor(r, g, b, a);
+
+    // 2. Wipe the canvas AND the depth buffer clean!
+    this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
   }
 }

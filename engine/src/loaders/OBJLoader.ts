@@ -1,13 +1,15 @@
 import { MeshData, Normal, Position, UV } from "../misc/types";
-import { Vec3 } from "../math/vectors/Vec3";
-import { Vec2 } from "../math/vectors/Vec2";
+import { vec2, vec3 } from "gl-matrix";
 
 export class OBJLoader {
   name: string;
   tempPositions: Position[];
   tempNormals: Normal[];
   tempUVs: UV[];
-  activeMaterial: string = "default";
+
+  // Track both the object state and material state
+  activeObject: string = "default_object";
+  activeMaterial: string;
 
   subMeshes: Map<string, MeshData>;
 
@@ -16,15 +18,17 @@ export class OBJLoader {
     this.tempPositions = [];
     this.tempNormals = [];
     this.tempUVs = [];
-
     this.subMeshes = new Map<string, MeshData>();
+
+    // Initialize the baseline fallback key
+    this.activeMaterial = `${this.name}_${this.activeObject}_default`;
 
     const subMesh: MeshData = {
       position: [],
       uv: [],
       normal: [],
     };
-    this.subMeshes.set("default", subMesh);
+    this.subMeshes.set(this.activeMaterial, subMesh);
   }
 
   async load(url: string): Promise<Map<string, MeshData>> {
@@ -46,7 +50,6 @@ export class OBJLoader {
       line = line.trim();
 
       if (line.length === 0) continue;
-
       if (line.startsWith("#")) continue;
 
       const tokens: string[] = line.split(" ");
@@ -54,6 +57,10 @@ export class OBJLoader {
       const data: string[] = tokens.slice(1);
 
       switch (prefix) {
+        case "o":
+        case "g":
+          this.parseObject(data);
+          break;
         case "v":
           this.parsePosition(data);
           break;
@@ -75,31 +82,34 @@ export class OBJLoader {
     }
   }
 
+  private parseObject(data: string[]): void {
+    // Update the state machine when a new object or group is declared
+    this.activeObject = data[0];
+  }
+
   private parsePosition(data: string[]): void {
-    const vec3: Vec3 = new Vec3();
-    vec3.x = parseFloat(data[0]);
-    vec3.y = parseFloat(data[1]);
-    vec3.z = parseFloat(data[2]);
-    this.tempPositions.push(vec3);
+    const v: vec3 = vec3.create();
+    vec3.set(v, parseFloat(data[0]), parseFloat(data[1]), parseFloat(data[2]));
+    this.tempPositions.push(v);
   }
 
   private parseUV(data: string[]): void {
-    const vec2: Vec2 = new Vec2();
-    vec2.x = parseFloat(data[0]);
-    vec2.y = parseFloat(data[1]);
-    this.tempUVs.push(vec2);
+    const v: vec2 = vec2.create();
+    vec2.set(v, parseFloat(data[0]), parseFloat(data[1]));
+    this.tempUVs.push(v);
   }
 
   private parseNormal(data: string[]): void {
-    const vec3: Vec3 = new Vec3();
-    vec3.x = parseFloat(data[0]);
-    vec3.y = parseFloat(data[1]);
-    vec3.z = parseFloat(data[2]);
-    this.tempNormals.push(vec3);
+    const v: vec3 = vec3.create();
+    vec3.set(v, parseFloat(data[0]), parseFloat(data[1]), parseFloat(data[2]));
+    this.tempNormals.push(v);
   }
 
   private parseMaterial(data: string[]): void {
-    this.activeMaterial = data[0];
+    // Generate the compound key: e.g., "earth_door_Material.002"
+    // For materials that apply to the whole mesh, it will be "earth_default_object_Material.002"
+    //this.activeMaterial = `${this.name}_${data[0]}`;
+    this.activeMaterial = `${this.name}_${this.activeObject}_${data[0]}`;
 
     const bool: boolean = this.subMeshes.has(this.activeMaterial);
     if (!bool) {
@@ -113,33 +123,28 @@ export class OBJLoader {
   }
 
   private parseFace(data: string[]): void {
-    const meshData: MeshData = this.subMeshes.get(this.activeMaterial)!; // Safe because of our Map structure
+    const meshData: MeshData = this.subMeshes.get(this.activeMaterial)!;
 
     for (let face of data) {
       const indices: string[] = face.split("/");
 
-      // 1. Position is ALWAYS guaranteed in an OBJ file
-      const posIndex = parseInt(indices[0]) - 1;
-      const position = this.tempPositions[posIndex];
-      meshData.position.push(position.x, position.y, position.z);
+      const posIndex: number = parseInt(indices[0]) - 1;
+      const position: vec3 = this.tempPositions[posIndex];
+      meshData.position.push(position[0], position[1], position[2]);
 
-      // 2. Safely handle missing UVs
       if (indices.length > 1 && indices[1] !== "") {
         const uvIndex = parseInt(indices[1]) - 1;
         const uv = this.tempUVs[uvIndex];
-        meshData.uv.push(uv.x, uv.y);
+        meshData.uv.push(uv[0], uv[1]);
       } else {
-        // Dummy fallback to keep WebGL happy
         meshData.uv.push(0, 0);
       }
 
-      // 3. Safely handle missing Normals
       if (indices.length > 2 && indices[2] !== "") {
-        const normIndex = parseInt(indices[2]) - 1;
-        const normal = this.tempNormals[normIndex];
-        meshData.normal.push(normal.x, normal.y, normal.z);
+        const normIndex: number = parseInt(indices[2]) - 1;
+        const normal: vec3 = this.tempNormals[normIndex];
+        meshData.normal.push(normal[0], normal[1], normal[2]);
       } else {
-        // Dummy fallback (pointing straight up)
         meshData.normal.push(0, 1, 0);
       }
     }

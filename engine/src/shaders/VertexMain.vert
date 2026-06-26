@@ -1,32 +1,25 @@
 #version 300 es
 precision mediump float;
 
-// attributes
-in vec3 aVertexPosition;
-in vec3 aVertexNormal;
-in vec2 aTextureCoord;
+layout(location = 0) in vec3 a_position;
+layout(location = 1) in vec2 a_uv;
+layout(location = 2) in vec3 a_normal;
 
-// uniforms
-uniform mat4 uWorldMatrix;
-uniform mat4 uViewMatrix;
-uniform mat4 uProjectionMatrix;
+uniform mat4 u_modelMatrix;
+uniform mat4 u_viewMatrix;
+uniform mat4 u_projectionMatrix;
 
-// out
 out vec3 vNormal;
 out vec2 vTextureCoord;
 out vec3 vFragPos;
 
-vec4 a_position = vec4(aVertexPosition, 1.0);
-vec4 a_normal = vec4(aVertexNormal, 0.0);
-vec2 a_uv = aTextureCoord;
-
-
-
 void main () {
+    vec4 worldPos = u_modelMatrix * vec4(a_position, 1.0);
+    //vFragPos = worldPos.xyz;
 
-    gl_Position = uProjectionMatrix * uViewMatrix * uWorldMatrix * a_position;
+    // The quick-and-dirty normal pass-through
+    vNormal = (u_modelMatrix * vec4(a_normal, 0.0)).xyz;
     vTextureCoord = a_uv;
-    vFragPos = (uWorldMatrix * a_position).xyz;
-    vNormal = (uWorldMatrix * a_normal).xyz;
-}
 
+    gl_Position = u_projectionMatrix * u_viewMatrix * worldPos;
+}

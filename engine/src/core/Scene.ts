@@ -1,5 +1,4 @@
 import { Entity } from "./Entity";
-import { i } from "vitest/dist/chunks/reporters.d.DVUYHHhe";
 
 export class Scene {
   private _root: Entity;

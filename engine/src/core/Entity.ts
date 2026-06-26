@@ -1,14 +1,14 @@
 import { Transform } from "./Transform";
-import { Material, MeshData } from "../misc/types";
-import { Mat4 } from "../math/matrix/Mat4";
 import { Mesh } from "../graphics/Mesh";
+import { Material } from "../graphics/Material";
+import { mat4 } from "gl-matrix";
 
 export class Entity {
   private _parent: Entity | null;
-  private _children: Entity[];
-  private _transform: Transform;
-  private _mesh?: Mesh;
-  private _material?: Material;
+  private readonly _children: Entity[];
+  private readonly _transform: Transform;
+  private readonly _mesh?: Mesh | null;
+  private readonly _material?: Material | null;
 
   constructor(mesh?: Mesh, material?: Material) {
     this._transform = new Transform();
@@ -29,7 +29,7 @@ export class Entity {
   }
 
   update(): void {
-    let worldMatrix: Mat4 | undefined;
+    let worldMatrix: mat4 | undefined;
     if (this._parent != null) {
       worldMatrix = this._parent._transform.worldMatrix;
     }
@@ -51,11 +51,11 @@ export class Entity {
     return this._transform;
   }
 
-  get mesh(): Mesh {
-    return this._mesh;
+  get mesh(): Mesh | null {
+    return this._mesh ? this._mesh : null;
   }
 
-  get material(): Material {
-    return this._material;
+  get material(): Material | null {
+    return this._material ? this._material : null;
   }
 }

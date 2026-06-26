@@ -1,15 +1,17 @@
-import { Vec3 } from "../math/vectors/Vec3";
-import { Material } from "../misc/types";
+import { MTLConfig } from "../misc/types";
+import { vec3 } from "gl-matrix";
 
 export class MTLLoader {
-  materials: Map<string, Material>;
+  name: string;
+  private _materials: Map<string, MTLConfig>;
   private activeMaterial: string = "";
 
-  constructor() {
-    this.materials = new Map<string, Material>();
+  constructor(name: string) {
+    this.name = name;
+    this._materials = new Map<string, MTLConfig>();
   }
 
-  async load(url: string): Promise<Map<string, Material>> {
+  async load(url: string): Promise<Map<string, MTLConfig>> {
     const response: Response = await fetch(url);
     if (!response.ok) {
       throw new Error(response.statusText);
@@ -18,7 +20,7 @@ export class MTLLoader {
     const text: string = await response.text();
     this.parse(text);
 
-    return this.materials;
+    return this._materials;
   }
 
   private parse(file: string): void {
@@ -54,67 +56,68 @@ export class MTLLoader {
           this.parseDiffuseMap(data);
           break;
         default:
-          // Safely ignore Ke, Ni, d, illum, etc.
           break;
       }
     }
   }
 
   private parseNewMaterial(data: string[]): void {
-    this.activeMaterial = data[0];
+    // Prefix the raw name with the model name to guarantee uniqueness
+    this.activeMaterial = `${this.name}_${data[0]}`;
 
-    // Initialize a blank slate for the new material
-    const material: Material = {
+    const material: MTLConfig = {
       name: this.activeMaterial,
-      diffuseColor: new Vec3(),
-      ambientColor: new Vec3(),
-      specularColor: new Vec3(),
+      diffuseColor: vec3.create(),
+      ambientColor: vec3.create(),
+      specularColor: vec3.create(),
       shininess: 0,
     };
 
-    this.materials.set(this.activeMaterial, material);
+    this._materials.set(this.activeMaterial, material);
   }
 
   private parseShininess(data: string[]): void {
-    const material = this.materials.get(this.activeMaterial)!;
+    const material = this._materials.get(this.activeMaterial)!;
     material.shininess = parseFloat(data[0]);
   }
 
   private parseAmbientColor(data: string[]): void {
-    const material = this.materials.get(this.activeMaterial)!;
-    material.ambientColor.x = parseFloat(data[0]);
-    material.ambientColor.y = parseFloat(data[1]);
-    material.ambientColor.z = parseFloat(data[2]);
+    const material: MTLConfig = this._materials.get(this.activeMaterial)!;
+    vec3.set(
+      material.ambientColor,
+      parseFloat(data[0]) || 0,
+      parseFloat(data[1]) || 0,
+      parseFloat(data[2]) || 0,
+    );
   }
 
   private parseDiffuseColor(data: string[]): void {
-    const material = this.materials.get(this.activeMaterial)!;
-    material.diffuseColor.x = parseFloat(data[0]);
-    material.diffuseColor.y = parseFloat(data[1]);
-    material.diffuseColor.z = parseFloat(data[2]);
+    const material: MTLConfig = this._materials.get(this.activeMaterial)!;
+    vec3.set(
+      material.diffuseColor,
+      parseFloat(data[0]) || 0,
+      parseFloat(data[1]) || 0,
+      parseFloat(data[2]) || 0,
+    );
   }
 
   private parseSpecularColor(data: string[]): void {
-    const material = this.materials.get(this.activeMaterial)!;
-    material.specularColor.x = parseFloat(data[0]);
-    material.specularColor.y = parseFloat(data[1]);
-    material.specularColor.z = parseFloat(data[2]);
+    const material: MTLConfig = this._materials.get(this.activeMaterial)!;
+    vec3.set(
+      material.specularColor,
+      parseFloat(data[0]) || 0,
+      parseFloat(data[1]) || 0,
+      parseFloat(data[2]) || 0,
+    );
   }
 
   private parseDiffuseMap(data: string[]): void {
-    const material = this.materials.get(this.activeMaterial)!;
-
-    // 1. Rejoin the string in case the filename had spaces in it
-    const fullPath = data.join(" ");
-
-    // 2. Normalize any Windows backslashes into standard forward slashes
+    //debugger;
+    const material: MTLConfig = this._materials.get(this.activeMaterial)!;
+    const fullPath: string = data.join(" ");
     const normalizedPath = fullPath.replace(/\\/g, "/");
-
-    // 3. Split by the slash and grab the very last item (the actual filename)
     const parts = normalizedPath.split("/");
-    const filename = parts[parts.length - 1];
-
-    // 4. Save just the safe filename
-    material.diffuseMap = filename;
+    //material.diffuseMap = parts[parts.length - 1];
+    material.diffuseMap = fullPath;
   }
 }

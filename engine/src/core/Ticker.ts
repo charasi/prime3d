@@ -1,3 +1,4 @@
+// type alias for function
 type Listener = (deltaTime: number) => void;
 
 export class Ticker {
@@ -66,8 +67,14 @@ export class Ticker {
     this.registry = new Map();
   }
 
+  /**
+   * adds a listener function to the bucket
+   * uses priority for key and array of listener for value
+   * @param priority priority of the listener function
+   * @param listener function for callback
+   */
   add(priority: number, listener: Listener): void {
-    let bucket: Listener[] = this.registry.get(priority);
+    let bucket: Listener[] | undefined = this.registry.get(priority);
 
     if (!bucket) {
       bucket = [];
@@ -77,8 +84,13 @@ export class Ticker {
     bucket.push(listener);
   }
 
+  /**
+   * removes a listener from a bucket
+   * @param priority listener priority
+   * @param listener function to remove
+   */
   remove(priority: number, listener: Listener): void {
-    const bucket = this.registry.get(priority);
+    const bucket: Listener[] | undefined = this.registry.get(priority);
 
     if (bucket) {
       const index: number = bucket.indexOf(listener);
@@ -95,6 +107,9 @@ export class Ticker {
     }
   }
 
+  /**
+   * starts the ticker
+   */
   start(): void {
     if (this.started) return;
     this.started = true;
@@ -108,11 +123,24 @@ export class Ticker {
     );
   }
 
-  tick(currentTime: number): void {
+  /**
+   *
+   * @param currentTime
+   * @private
+   */
+  private tick(currentTime: number): void {
     if (!this.started) return;
 
+    // time since the very last frame
     this.elapsedMS = currentTime - this.lastTime;
+    // for clamping (time is 3600000ms because user navigated away from browser)
     this.deltaMS = Math.min(this.elapsedMS, this.maxElapsedMS);
+    /**
+     * Converts the actual elapsed frame time into a normalized scalar value (typically ~1.0).
+     * It does this by dividing the real milliseconds that passed by the ideal frame time (16.66ms for 60 FPS).
+     * This creates a frame-rate independent multiplier used for physics and movement calculations.
+     * If the browser lags and drops to 30 FPS, this value becomes 2.0, ensuring objects move twice as far to smoothly compensate for the dropped frame.
+     */
     this.deltaTime = this.deltaMS / this.targetFPMS;
     this.lastTime = currentTime;
 
@@ -136,6 +164,9 @@ export class Ticker {
     );
   }
 
+  /**
+   * stops the ticker
+   */
   stop(): void {
     if (!this.started) return;
 

@@ -26,10 +26,13 @@
 
     "baseUrl": ".",
     "paths": {
-      "@engine/*": ["../../core-engine/src/*"]
+      "@engine/*": ["../engine/src/*"]
     }
 
   },
-  "include": ["src"],
+  "include": [
+    "src",
+    "../engine/src/**/*"
+  ]
 
 }
