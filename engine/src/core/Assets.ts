@@ -25,23 +25,6 @@ export class Assets {
     }
   }
 
-  /**
-  getAttributeNames(key: string): AttributeNames | undefined {
-    return this._attributes.get(key);
-  }
-
-  setAttributeNames(key: string, value: AttributeNames): void {
-    this._attributes.set(key, value);
-  }
-
-  deleteAttributeNames(key: string): void {
-    this._attributes.delete(key);
-  }
-
-  deleteAllAttributeNames(): void {
-    this._attributes.clear();
-  }*/
-
   getMeshData(key: string, meshName: string): MeshData | undefined {
     const value: Map<string, MeshData> | undefined =
       this._subMeshesData.get(key);

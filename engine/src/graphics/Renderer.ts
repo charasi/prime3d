@@ -16,6 +16,9 @@ export class Renderer {
   private uniformLocations: Map<string, WebGLUniformLocation>;
   private activeProgramName: string | null;
   private activeVAOName: string | null = null;
+  private colorTexture: WebGLTexture | null = null;
+  private renderBuffer: WebGLRenderbuffer | null = null;
+  private frameBuffer: WebGLFramebuffer | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -195,16 +198,8 @@ export class Renderer {
     this.fragmentShaders.set(shader.name, fShader);
   }
 
-  createVertexBuffers(
-    vao: string,
-    programName: string, // We need this back so we can query the program!
-    bufferConfigs: BufferConfig[],
-  ): void {
+  createVertexBuffers(vao: string, bufferConfigs: BufferConfig[]): void {
     if (!this.gl) throw new Error("Prime3D: WebGL2 is not supported.");
-
-    const program: WebGLProgram | undefined = this.programs.get(programName);
-    if (!program)
-      throw new Error(`Prime3D: Program '${programName}' not found.`);
 
     const vaoRef: WebGLVertexArrayObject | null = this.gl.createVertexArray();
     if (!vaoRef) throw new Error("GPU out of memory");
@@ -223,25 +218,21 @@ export class Renderer {
 
       // Just-In-Time Query!
       if (config.target === "vertex" && config.attributeName) {
-        const location: number = this.gl.getAttribLocation(
-          program,
-          config.attributeName,
-        );
+        //const location: number = this.gl.getAttribLocation(
+        // program,
+        //config.attributeName,
+        //);
 
         // Safely check if the compiler optimized it out
-        if (location !== -1) {
-          this.gl.enableVertexAttribArray(location);
+        if (config.location !== undefined) {
+          this.gl.enableVertexAttribArray(config.location);
           this.gl.vertexAttribPointer(
-            location,
+            config.location,
             config.size!,
             this.gl.FLOAT,
             false,
             0,
             0,
-          );
-        } else {
-          console.warn(
-            `Prime3D: Attribute '${config.attributeName}' missing or optimized out in '${programName}'.`,
           );
         }
       }
@@ -296,18 +287,18 @@ export class Renderer {
     }
   }
 
-  bindUniform(shaderUniformData: ShaderUniformData[]): void {
+  bindUniform(pgmName: string, shaderUniformData: ShaderUniformData[]): void {
     // Ensure the WebGL2 context exists before attempting GPU operations
     if (!this.gl) {
       throw new Error("Prime3D: WebGL2 is not supported by this browser.");
     }
 
     for (const config of shaderUniformData) {
-      // 1. THE FIX: Guarantee the correct shader is active before sending data!
+      // Guarantee the correct shader is active before sending data!
       // (This is virtually free because your useProgram method caches the active state)
-      this.useProgram(config.pgmName);
+      this.useProgram(pgmName);
 
-      const storageKey = `${config.pgmName}:${config.uniformName}`;
+      const storageKey = `${pgmName}:${config.uniformName}`;
       const location = this.uniformLocations.get(storageKey);
 
       if (!location) continue;
@@ -346,10 +337,6 @@ export class Renderer {
       throw new Error("Prime3D: WebGL2 is not supported by this browser.");
     }
 
-    if (this.activeProgramName === pgmName) {
-      return;
-    }
-
     const program: WebGLProgram | undefined = this.programs.get(pgmName);
     if (!program) {
       throw new Error(
@@ -363,11 +350,6 @@ export class Renderer {
   bindVAO(vaoName: string): void {
     if (!this.gl) {
       throw new Error("Prime3D: WebGL2 is not supported by this browser.");
-    }
-
-    // THE CACHE: Don't re-bind if it's already plugged in!
-    if (this.activeVAOName === vaoName) {
-      return;
     }
 
     const vao: WebGLVertexArrayObject | undefined = this.vaos.get(vaoName);
@@ -509,5 +491,93 @@ export class Renderer {
 
     // 2. Wipe the canvas AND the depth buffer clean!
     this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+  }
+
+  createPickingFramebuffer(): void {
+    if (!this.gl) return;
+    // create texture to store colors
+    this.colorTexture = this.gl.createTexture();
+    this.gl.bindTexture(this.gl.TEXTURE_2D, this.colorTexture);
+    this.gl.texImage2D(
+      this.gl.TEXTURE_2D,
+      0,
+      this.gl.RGBA,
+      this.canvas.width,
+      this.canvas.height,
+      0,
+      this.gl.RGBA,
+      this.gl.UNSIGNED_BYTE,
+      null,
+    );
+
+    // Create render buffer to store depth information
+    this.renderBuffer = this.gl.createRenderbuffer();
+    this.gl.bindRenderbuffer(this.gl.RENDERBUFFER, this.renderBuffer);
+    this.gl.renderbufferStorage(
+      this.gl.RENDERBUFFER,
+      this.gl.DEPTH_COMPONENT16,
+      this.canvas.width,
+      this.canvas.height,
+    );
+
+    // Create frame buffer for offscreen rendering
+    this.frameBuffer = this.gl.createFramebuffer();
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.frameBuffer);
+
+    this.gl.framebufferTexture2D(
+      this.gl.FRAMEBUFFER,
+      this.gl.COLOR_ATTACHMENT0,
+      this.gl.TEXTURE_2D,
+      this.colorTexture,
+      0,
+    );
+
+    this.gl.framebufferRenderbuffer(
+      this.gl.FRAMEBUFFER,
+      this.gl.DEPTH_ATTACHMENT,
+      this.gl.RENDERBUFFER,
+      this.renderBuffer,
+    );
+
+    this.gl.bindTexture(this.gl.TEXTURE_2D, null);
+    this.gl.bindRenderbuffer(this.gl.RENDERBUFFER, null);
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+  }
+
+  bindPickingFramebuffer(): void {
+    if (!this.gl) return;
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.frameBuffer);
+
+    // Clear the FBO to pure black (ID 0) before drawing the alt_planets.
+    // This ensures clicking the background returns 0 instead of ghost data.
+    this.gl.clearColor(0.0, 0.0, 0.0, 0.0);
+    this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+  }
+
+  unbindPickingFramebuffer(): void {
+    if (!this.gl) return;
+    // Revert drawing back to the default canvas
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+  }
+
+  readPixel(x: number, y: number): Uint8Array {
+    if (!this.gl) return new Uint8Array(4);
+
+    const data = new Uint8Array(4);
+    // WebGL's Y-axis is inverted relative to the browser DOM!
+    // We must flip the mouse Y coordinate to match the WebGL texture coordinate.
+    const webglY: number = this.canvas.height - y - 1;
+
+    this.gl.readPixels(
+      x,
+      webglY,
+      1,
+      1,
+      this.gl.RGBA,
+      this.gl.UNSIGNED_BYTE,
+      data,
+    );
+
+    return data;
   }
 }

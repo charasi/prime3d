@@ -1,19 +1,27 @@
 import { vec3, mat3, mat4 } from "gl-matrix";
 import { toRadians } from "../misc/Utils";
 
+/**
+ * Defines the position, rotation, and scale of an object in 3D space.
+ * This engine uses a Right-Handed coordinate system where +Y is Up and +Z is points
+ * toward screen and +X is right.
+ * The transformation matrix is calculated in TRS order (Translation, Rotation, Scale).
+ */
 export class Transform {
+  // position of object
   private readonly _position: vec3;
+  private readonly _scale: vec3;
   private readonly _rotation: mat3;
-  //private readonly _rotationX: mat4;
-  // private readonly _rotationY: mat4;
-  //private readonly _rotationZ: mat4;
+
+  // angle to rotate the X,Y, and Z axes
   private _rotationX: number = 0;
   private _rotationY: number = 0;
   private _rotationZ: number = 0;
-  private readonly _eulerA: mat4;
-  private readonly _scale: vec3;
+
   private readonly _localMatrix: mat4;
   private readonly _worldMatrix: mat4;
+  // if object position, rotation, or scale is set then set to true
+  // skip updates if these attributes are not set
   private _isDirty: boolean;
 
   constructor() {
@@ -21,28 +29,28 @@ export class Transform {
     this._scale = vec3.create();
     vec3.set(this._scale, 1, 1, 1);
     this._rotation = mat3.create();
-    //this._rotationX = mat4.create();
-    //this._rotationY = mat4.create();
-    // this._rotationZ = mat4.create();
-    this._eulerA = mat4.create();
+
     this._localMatrix = mat4.create();
     this._worldMatrix = mat4.create();
     this._isDirty = true;
   }
 
-  getLocalMatrix(): mat4 {
+  /**
+   *
+   * @private
+   * Updates object local matrix
+   * to be multiplied with parent matrix
+   */
+  private updateLocalMatrix(): mat4 {
     if (!this._isDirty) {
       return this._localMatrix;
     }
+
     mat4.identity(this._localMatrix);
 
     // 1. Apply Translation
     mat4.translate(this._localMatrix, this._localMatrix, this._position);
 
-    // 2. Apply Rotation (Safely casting your mat3 into a mat4)
-    //const r = this._eulerA;
-
-    //mat4.multiply(this._localMatrix, this._localMatrix, r);
     mat4.rotateX(
       this._localMatrix,
       this._localMatrix,
@@ -66,8 +74,12 @@ export class Transform {
     return this._localMatrix;
   }
 
+  /**
+   * updates object world matrix
+   * @param parentWorldMatrix object parent matrix
+   */
   updateWorldMatrix(parentWorldMatrix?: mat4): void {
-    this.getLocalMatrix();
+    this.updateLocalMatrix();
     if (parentWorldMatrix) {
       // Child Object: Inherit absolute position
       mat4.multiply(this._worldMatrix, parentWorldMatrix, this._localMatrix);
@@ -75,40 +87,8 @@ export class Transform {
     }
 
     // Root Object: World space equals Local space
-    // mat4.copy(out, source)
     mat4.copy(this._worldMatrix, this._localMatrix);
   }
-
-  translate(v: vec3): vec3 {
-    vec3.add(this._position, this._position, v);
-    this._isDirty = true;
-    return this._position;
-  }
-
-  rotate(angle: number): void {
-    const rad: number = toRadians(angle);
-    mat3.rotate(this._rotation, this._rotation, rad);
-    this._isDirty = true;
-  }
-
-  /**
-  rotateX(angle: number): void {
-    const rad: number = toRadians(angle);
-    mat4.rotateX(this._rotationX, this._rotationX, rad);
-    this._isDirty = true;
-  }
-
-  rotateY(angle: number): void {
-    const rad: number = toRadians(angle);
-    mat4.rotateY(this._rotationY, this._rotationY, rad);
-    this._isDirty = true;
-  }
-
-  rotateZ(angle: number): void {
-    const rad: number = toRadians(angle);
-    mat4.rotateZ(this._rotationZ, this._rotationZ, rad);
-    this._isDirty = true;
-  }*/
 
   rotateEulerAngles(xDelta: number, yDelta: number, zDelta: number): void {
     this._rotationX += xDelta;
@@ -117,42 +97,40 @@ export class Transform {
     this._isDirty = true;
   }
 
-  fromRotation(angle: number): void {
-    const rad: number = toRadians(angle);
-    mat3.fromRotation(this._rotation, rad);
-    this._isDirty = true;
-  }
-
-  scaleBy(n: number): void {
-    vec3.scale(this._scale, this._scale, n);
-    this._isDirty = true;
-  }
-
+  /**
+   * get object position
+   */
   get position(): vec3 {
     return this._position;
   }
 
-  get rotation(): mat3 {
-    return this._rotation;
+  /**
+   * set object position
+   */
+  set position(v: vec3) {
+    vec3.copy(this._position, v);
+    this._isDirty = true;
   }
 
+  /**
+   * get object scale
+   */
   get scale(): vec3 {
     return this._scale;
   }
 
-  get localMatrix(): mat4 {
-    return this._localMatrix;
+  /**
+   * set object scale
+   */
+  set scale(v: vec3) {
+    vec3.copy(this._scale, v);
+    this._isDirty = true;
   }
 
+  /**
+   * get object world matrix
+   */
   get worldMatrix(): mat4 {
     return this._worldMatrix;
-  }
-
-  get isDirty(): boolean {
-    return this._isDirty;
-  }
-
-  set isDirty(value: boolean) {
-    this._isDirty = value;
   }
 }

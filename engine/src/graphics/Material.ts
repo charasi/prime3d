@@ -92,12 +92,12 @@ export class Material {
     return this._name;
   }
 
-  extractUniforms(targetProgramName: string): ShaderUniformData[] {
+  extractUniforms(): ShaderUniformData[] {
     const uniformValues: ShaderUniformData[] = [];
 
     this.uniforms.forEach((value, key) => {
       uniformValues.push({
-        pgmName: targetProgramName, // ✅ Safely targets the active shader
+        //pgmName: targetProgramName, // ✅ Safely targets the active shader
         uniformName: key,
         type: value.type,
         data: value.data,

@@ -16,6 +16,9 @@ export class Scene {
     this._root.update();
   }
 
+  /**
+   * Get entities that can be rendered on screen
+   */
   getRenderables(): Entity[] {
     // 1. Clear the caches
     this._renderables.length = 0;
@@ -35,7 +38,7 @@ export class Scene {
       }
 
       // 5. The Optimized Descent
-      const children = entity.children;
+      const children: Entity[] = entity.children;
       for (let i = 0; i < children.length; i++) {
         this._stack.push(children[i]);
       }

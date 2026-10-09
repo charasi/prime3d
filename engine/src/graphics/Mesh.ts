@@ -26,6 +26,7 @@ export class Mesh {
       data: positionData,
       usage: "static",
       size: 3,
+      location: 0,
     };
 
     buffers.push(positionBuf);
@@ -36,6 +37,7 @@ export class Mesh {
       data: normalData,
       usage: "static",
       size: 3,
+      location: 2,
     };
 
     buffers.push(normBuf);
@@ -47,6 +49,7 @@ export class Mesh {
         data: uvData,
         usage: "static",
         size: 2,
+        location: 1,
       };
 
       buffers.push(uvBuf);

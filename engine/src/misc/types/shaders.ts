@@ -42,6 +42,7 @@ export interface BufferConfig {
   data: WebGLTypedArray | null; // The actual numbers (null if just allocating empty space)
   usage: BufferUsage; // Defaults to 'static' if not provided
   size?: number; // ONLY used for 'vertex' targets (e.g., 3 for a vec3)
+  location?: number;
 }
 
 export type UniformType =
@@ -61,7 +62,7 @@ export interface ShaderUniformInput {
 }
 
 export interface ShaderUniformData {
-  pgmName: string;
+  //pgmName: string;
   uniformName: string; // e.g., 'uModelViewMatrix' or 'uColor'
   type: UniformType;
   data: UniformData;

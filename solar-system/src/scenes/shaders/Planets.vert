@@ -11,11 +11,9 @@ uniform mat4 u_projectionMatrix;
 
 out vec3 vNormal;
 out vec2 vTextureCoord;
-out vec3 vFragPos;
 
 void main () {
     vec4 worldPos = u_modelMatrix * vec4(a_position, 1.0);
-    //vFragPos = worldPos.xyz;
 
     // The quick-and-dirty normal pass-through
     vNormal = (u_modelMatrix * vec4(a_normal, 0.0)).xyz;

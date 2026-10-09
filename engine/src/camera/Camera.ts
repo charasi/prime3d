@@ -1,4 +1,4 @@
-import { Transform } from "./Transform";
+import { Transform } from "../core/Transform";
 import { mat4, vec3 } from "gl-matrix";
 
 export class Camera {
@@ -36,7 +36,7 @@ export class Camera {
   }
 
   getViewMatrix(): mat4 {
-    // 1. THE FIX: Force the spatial anchor to calculate its matrices before reading them!
+    // 1. Force the spatial anchor to calculate its matrices before reading them!
     this._transform.updateWorldMatrix();
 
     // 2. Now it is safe to extract the translation

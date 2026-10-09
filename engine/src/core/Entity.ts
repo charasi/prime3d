@@ -4,13 +4,15 @@ import { Material } from "../graphics/Material";
 import { mat4 } from "gl-matrix";
 
 export class Entity {
+  private readonly _name: string = "";
   private _parent: Entity | null;
   private readonly _children: Entity[];
   private readonly _transform: Transform;
   private readonly _mesh?: Mesh | null;
   private readonly _material?: Material | null;
 
-  constructor(mesh?: Mesh, material?: Material) {
+  constructor(name?: string, mesh?: Mesh, material?: Material) {
+    if (name) this._name = name;
     this._transform = new Transform();
     this._parent = null;
     this._children = [];
@@ -22,12 +24,19 @@ export class Entity {
     }
   }
 
+  /**
+   * add a child to a parent
+   * @param child entity to add to parent
+   */
   addChild(child: Entity): void {
     this._children.push(child);
     child._parent = this;
-    child._transform.isDirty = true;
+    //child._transform.isDirty = true;
   }
 
+  /**
+   * update world matrix of entity
+   */
   update(): void {
     let worldMatrix: mat4 | undefined;
     if (this._parent != null) {
@@ -57,5 +66,9 @@ export class Entity {
 
   get material(): Material | null {
     return this._material ? this._material : null;
+  }
+
+  get name(): string {
+    return this._name;
   }
 }

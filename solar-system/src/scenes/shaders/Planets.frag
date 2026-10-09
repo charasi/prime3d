@@ -3,7 +3,7 @@ precision mediump float;
 
 in vec3 vNormal;
 in vec2 vTextureCoord;
-in vec3 vFragPos;
+//in vec3 vFragPos;
 
 // --- MATERIAL UNIFORMS ---
 // These perfectly match what Material.fromMTL() is sending to the GPU!
@@ -12,7 +12,7 @@ uniform vec3 u_ambientColor;   // Ka
 uniform vec3 u_specularColor;  // Ks
 uniform float u_shininess;     // Ns
 
-uniform sampler2D u_earthSampler;
+uniform sampler2D u_planet;
 
 out vec4 fragColor;
 
@@ -21,5 +21,5 @@ void main() {
     // to prove the geometry works before we write the lighting math.
     //fragColor = vec4(u_specularColor, 1.0);
     //fragColor = vec4(0.0, 0.0, 1.0, 0.08);
-    fragColor = texture(u_earthSampler, vTextureCoord);
+    fragColor = texture(u_planet, vTextureCoord);
 }
